@@ -40,8 +40,10 @@ export function getAIConfig(): AIConfig {
 		userPromptTemplate: cfg.aiPrompt || DEFAULT_AI_CONFIG.userPromptTemplate,
 		timeoutSeconds: toNumber(cfg.aiTimeoutSeconds, DEFAULT_AI_CONFIG.timeoutSeconds),
 		retries: toNumber(cfg.aiRetryCount, DEFAULT_AI_CONFIG.retries),
-		disableThinking:
-			cfg.aiDisableThinking === undefined ? DEFAULT_AI_CONFIG.disableThinking : cfg.aiDisableThinking === true,
+		// 兼容 4.16.0 的「禁止模型思考」开关：显式开启过的用户迁移到 none 档
+		thinkingMode:
+			cfg.aiThinkingMode ||
+			(cfg.aiDisableThinking === true ? 'none' : DEFAULT_AI_CONFIG.thinkingMode),
 		type: cfg.aiType === 'fetch' ? 'fetch' : 'GM_xmlhttpRequest',
 		extraHeaders: cfg.aiExtraHeaders || ''
 	};

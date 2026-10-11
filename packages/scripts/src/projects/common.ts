@@ -529,13 +529,18 @@ export const CommonProject = Project.create({
 							'AI 请求失败（超时、接口报错、内容无法解析）后的额外重试次数，每次间隔 2 秒。注意重试会叠加总耗时。'
 					}
 				},
-				aiDisableThinking: {
-					label: '禁止模型思考',
-					defaultValue: DEFAULT_AI_CONFIG.disableThinking,
+				aiThinkingMode: {
+					label: 'AI 思考模式',
+					tag: 'select',
+					defaultValue: DEFAULT_AI_CONFIG.thinkingMode,
+					options: [
+						['low', '低强度思考（推荐，速度与正确率均衡）'],
+						['none', '关闭思考（最快，正确率较低）'],
+						['default', '跟随平台默认（最慢，正确率最高）']
+					],
 					attrs: {
-						type: 'checkbox',
 						title:
-							'携带 DeepSeek 官方参数（thinking: disabled 与 reasoning_effort: none）关闭思考模式，答题不需要推理，关闭后响应时间可缩短数倍。若个别平台提示参数错误，请关闭本选项。'
+							'DeepSeek V4 默认以高强度思考（reasoning_effort: high），最准但很慢；低强度思考（low）速度与正确率均衡；关闭思考（none）最快但专业题正确率明显下降。若个别平台提示参数错误，请选「跟随平台默认」。'
 					}
 				},
 				aiPrompt: {

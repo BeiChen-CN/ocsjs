@@ -78,11 +78,14 @@ console.log('\n  请求体');
 const data = buildAIData(DEFAULT_AI_CONFIG, { title: 'q', type: 'single', options: 'A. 1\nB. 2' });
 check('模型与消息正确', [data.model, data.messages.length, data.stream], [DEFAULT_AI_CONFIG.model, 2, false]);
 check('温度与输出上限正确', [data.temperature, data.max_tokens], [DEFAULT_AI_CONFIG.temperature, DEFAULT_AI_CONFIG.maxTokens]);
-// 默认关闭思考：携带 DeepSeek 官方的思考控制参数，避免推理模型长时间思考
-check('默认携带 thinking disabled', data.thinking, { type: 'disabled' });
-check('默认携带 reasoning_effort none', data.reasoning_effort, 'none');
-const dataThink = buildAIData({ ...DEFAULT_AI_CONFIG, disableThinking: false }, { title: 'q', type: 'single' });
-check('允许思考时不携带控制参数', [dataThink.thinking, dataThink.reasoning_effort], [undefined, undefined]);
+// 默认低强度思考：开启思考但强度为 low，速度与正确率均衡
+check('默认携带 thinking enabled', data.thinking, { type: 'enabled' });
+check('默认 reasoning_effort low', data.reasoning_effort, 'low');
+const dataNoThink = buildAIData({ ...DEFAULT_AI_CONFIG, thinkingMode: 'none' }, { title: 'q', type: 'single' });
+check('关闭思考：thinking disabled', dataNoThink.thinking, { type: 'disabled' });
+check('关闭思考：reasoning_effort none', dataNoThink.reasoning_effort, 'none');
+const dataPlatform = buildAIData({ ...DEFAULT_AI_CONFIG, thinkingMode: 'default' }, { title: 'q', type: 'single' });
+check('跟随平台默认时不携带控制参数', [dataPlatform.thinking, dataPlatform.reasoning_effort], [undefined, undefined]);
 
 // ========== 答案解析 ==========
 console.log('\n  答案解析');

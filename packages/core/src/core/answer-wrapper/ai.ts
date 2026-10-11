@@ -11,6 +11,7 @@ import { $ } from '../../utils/common';
 export const DEFAULT_AI_SYSTEM_PROMPT = [
 	'你是一个专业的网课答题助手。',
 	'请根据题目和选项，直接给出正确答案。',
+	'作答时请仔细审题，注意「不正确」「除了」等否定词；不确定时，选择最符合教材标准表述与常识的选项。',
 	'禁止输出任何解释、分析、推导过程、多余文字或 markdown 格式。'
 ].join('\n');
 
@@ -59,11 +60,12 @@ export const DEFAULT_AI_CONFIG: AIConfig = {
 	systemPrompt: DEFAULT_AI_SYSTEM_PROMPT,
 	userPromptTemplate: DEFAULT_AI_USER_PROMPT,
 	// AI 与题库是串行执行的，过长会与题库超时叠加，可能超过答题器的等待上限（题库超时 + 10 秒）
-	timeoutSeconds: 60,
+	timeoutSeconds: 30,
 	// 请求失败（超时、接口报错、内容无法解析）后的重试次数
 	retries: 1,
-	// 关闭模型思考模式。网课答题不需要推理，关闭后响应时间可缩短数倍
-	disableThinking: true,
+	// 思考模式：低强度思考在速度与正确率间取得平衡。
+	// 完全关闭思考（none）虽然最快，但专业题正确率明显下降；平台默认（high）最准但太慢
+	thinkingMode: 'low',
 	type: 'GM_xmlhttpRequest',
 	extraHeaders: ''
 };
@@ -163,10 +165,13 @@ export function buildAIMessages(
 /**
  * 构造发给 AI 接口的请求体
  *
- * 网课答题不需要模型推理，{@link AIConfig.disableThinking} 开启时会携带
- * DeepSeek 官方的思考控制参数（thinking.type = disabled 与 reasoning_effort = none），
- * 关闭思考模式后响应时间可缩短数倍。
- * 大多数 OpenAI 兼容网关会忽略不认识的参数，个别严格网关若因此报参数错误，关闭该选项即可。
+ * 通过 {@link AIConfig.thinkingMode} 控制模型的思考模式（DeepSeek 官方参数）：
+ * - none    thinking.type = disabled + reasoning_effort = none，关闭思考，响应最快
+ * - low     thinking.type = enabled + reasoning_effort = low，低强度思考，速度与正确率均衡
+ * - default 不发送任何控制参数，跟随平台默认（DeepSeek 默认高强度思考）
+ *
+ * 大多数 OpenAI 兼容网关会忽略不认识的参数，个别严格网关若因此报参数错误，
+ * 可将思考模式设为「跟随平台默认」。
  */
 export function buildAIData(config: AIConfig, env: Record<string, any>): Record<string, any> {
 	const data: Record<string, any> = {
@@ -176,9 +181,12 @@ export function buildAIData(config: AIConfig, env: Record<string, any>): Record<
 		stream: false,
 		messages: buildAIMessages(config, env)
 	};
-	if (config.disableThinking) {
+	if (config.thinkingMode === 'none') {
 		data.thinking = { type: 'disabled' };
 		data.reasoning_effort = 'none';
+	} else if (config.thinkingMode === 'low') {
+		data.thinking = { type: 'enabled' };
+		data.reasoning_effort = 'low';
 	}
 	return data;
 }

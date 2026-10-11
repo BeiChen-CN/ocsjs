@@ -92,8 +92,13 @@ export interface AIConfig {
 	timeoutSeconds: number;
 	/** 请求失败后的重试次数，0 表示不重试 */
 	retries: number;
-	/** 是否禁止模型思考（发送 DeepSeek 官方参数 thinking: disabled 与 reasoning_effort: none，大幅缩短响应时间） */
-	disableThinking: boolean;
+	/**
+	 * 思考模式：
+	 * - none    关闭思考（最快，正确率较低）
+	 * - low     低强度思考（推荐，速度与正确率均衡）
+	 * - default 跟随平台默认（DeepSeek 默认高强度思考，最慢但最准）
+	 */
+	thinkingMode: 'none' | 'low' | 'default';
 	/** 请求方式，GM_xmlhttpRequest 可跨域，fetch 需要接口支持 CORS */
 	type: 'GM_xmlhttpRequest' | 'fetch';
 	/** 额外的请求头，每行一个，格式为 key: value */
