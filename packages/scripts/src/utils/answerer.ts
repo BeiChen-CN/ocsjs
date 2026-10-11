@@ -39,6 +39,9 @@ export function getAIConfig(): AIConfig {
 		systemPrompt: cfg.aiSystemPrompt || DEFAULT_AI_CONFIG.systemPrompt,
 		userPromptTemplate: cfg.aiPrompt || DEFAULT_AI_CONFIG.userPromptTemplate,
 		timeoutSeconds: toNumber(cfg.aiTimeoutSeconds, DEFAULT_AI_CONFIG.timeoutSeconds),
+		retries: toNumber(cfg.aiRetryCount, DEFAULT_AI_CONFIG.retries),
+		disableThinking:
+			cfg.aiDisableThinking === undefined ? DEFAULT_AI_CONFIG.disableThinking : cfg.aiDisableThinking === true,
 		type: cfg.aiType === 'fetch' ? 'fetch' : 'GM_xmlhttpRequest',
 		extraHeaders: cfg.aiExtraHeaders || ''
 	};

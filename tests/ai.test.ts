@@ -14,6 +14,7 @@ import {
 	buildAIHeaders,
 	parseAIContent,
 	buildAIMessages,
+	buildAIData,
 	safeStringify,
 	extractAIError,
 	extractAIContent,
@@ -71,6 +72,17 @@ console.log('\n  消息');
 const messages = buildAIMessages(DEFAULT_AI_CONFIG, { title: 'q', type: 'judgement' });
 check('系统 + 用户两条消息', messages.length, 2);
 check('角色顺序正确', messages.map((m) => m.role), ['system', 'user']);
+
+// ========== 请求体构造 ==========
+console.log('\n  请求体');
+const data = buildAIData(DEFAULT_AI_CONFIG, { title: 'q', type: 'single', options: 'A. 1\nB. 2' });
+check('模型与消息正确', [data.model, data.messages.length, data.stream], [DEFAULT_AI_CONFIG.model, 2, false]);
+check('温度与输出上限正确', [data.temperature, data.max_tokens], [DEFAULT_AI_CONFIG.temperature, DEFAULT_AI_CONFIG.maxTokens]);
+// 默认关闭思考：携带 DeepSeek 官方的思考控制参数，避免推理模型长时间思考
+check('默认携带 thinking disabled', data.thinking, { type: 'disabled' });
+check('默认携带 reasoning_effort none', data.reasoning_effort, 'none');
+const dataThink = buildAIData({ ...DEFAULT_AI_CONFIG, disableThinking: false }, { title: 'q', type: 'single' });
+check('允许思考时不携带控制参数', [dataThink.thinking, dataThink.reasoning_effort], [undefined, undefined]);
 
 // ========== 答案解析 ==========
 console.log('\n  答案解析');

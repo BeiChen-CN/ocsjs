@@ -60,9 +60,16 @@ export const DEFAULT_AI_CONFIG: AIConfig = {
 	userPromptTemplate: DEFAULT_AI_USER_PROMPT,
 	// AI 与题库是串行执行的，过长会与题库超时叠加，可能超过答题器的等待上限（题库超时 + 10 秒）
 	timeoutSeconds: 60,
+	// 请求失败（超时、接口报错、内容无法解析）后的重试次数
+	retries: 1,
+	// 关闭模型思考模式。网课答题不需要推理，关闭后响应时间可缩短数倍
+	disableThinking: true,
 	type: 'GM_xmlhttpRequest',
 	extraHeaders: ''
 };
+
+/** 请求失败后的重试间隔（毫秒） */
+const RETRY_DELAY = 2000;
 
 /** 题型 -> 中文描述 */
 const TYPE_LABELS: Record<string, string> = {
@@ -151,6 +158,29 @@ export function buildAIMessages(
 		{ role: 'system', content: config.systemPrompt || DEFAULT_AI_SYSTEM_PROMPT },
 		{ role: 'user', content: resolveAIPrompt(config.userPromptTemplate, env) }
 	];
+}
+
+/**
+ * 构造发给 AI 接口的请求体
+ *
+ * 网课答题不需要模型推理，{@link AIConfig.disableThinking} 开启时会携带
+ * DeepSeek 官方的思考控制参数（thinking.type = disabled 与 reasoning_effort = none），
+ * 关闭思考模式后响应时间可缩短数倍。
+ * 大多数 OpenAI 兼容网关会忽略不认识的参数，个别严格网关若因此报参数错误，关闭该选项即可。
+ */
+export function buildAIData(config: AIConfig, env: Record<string, any>): Record<string, any> {
+	const data: Record<string, any> = {
+		model: config.model,
+		temperature: config.temperature,
+		max_tokens: config.maxTokens,
+		stream: false,
+		messages: buildAIMessages(config, env)
+	};
+	if (config.disableThinking) {
+		data.thinking = { type: 'disabled' };
+		data.reasoning_effort = 'none';
+	}
+	return data;
 }
 
 /**
@@ -271,17 +301,50 @@ export function extractAIContent(response: any): { content?: string; reasoningOn
 }
 
 /**
- * 请求 AI 并返回题库格式的搜索结果
+ * 请求 AI 并返回题库格式的搜索结果（带重试）
  *
  * 无论成功与否都会返回一个 {@link SearchInformation}：
  * - 成功时 results 中带有 `extra_data.ai = true`，答题结果面板会显示「AI」标记
  * - 失败时通过 error 字段返回错误信息，便于在面板上展示
+ *
+ * 请求失败（超时、接口报错、内容无法解析）时，按 {@link AIConfig.retries}
+ * 指定的次数自动重试，每次间隔 {@link RETRY_DELAY} 毫秒。
  *
  * @param config AI 配置
  * @param env    题目环境，包含 title / options / type
  * @param opts   可选配置，logger 用于输出调试日志
  */
 export async function requestAIAnswer(
+	config: AIConfig,
+	env: Record<string, any>,
+	opts?: { logger?: (...args: any[]) => void }
+): Promise<SearchInformation> {
+	const retries = Math.max(0, Math.floor(Number(config.retries) || 0));
+	const total = retries + 1;
+	let info: SearchInformation | undefined;
+
+	for (let attempt = 1; attempt <= total; attempt++) {
+		info = await requestAIAnswerOnce(config, env, opts);
+		if (!info.error) {
+			info.attempts = attempt;
+			return info;
+		}
+		if (attempt < total) {
+			opts?.logger?.(`[AI-重试] 第 ${attempt} 次请求失败，${RETRY_DELAY / 1000} 秒后重试：`, info.error);
+			await $.sleep(RETRY_DELAY);
+		}
+	}
+
+	if (total > 1) {
+		info!.error = `已重试 ${retries} 次仍失败：` + info!.error;
+	}
+	return info!;
+}
+
+/**
+ * 单次请求 AI（不做重试，失败时通过 error 字段返回）
+ */
+async function requestAIAnswerOnce(
 	config: AIConfig,
 	env: Record<string, any>,
 	opts?: { logger?: (...args: any[]) => void }
@@ -305,13 +368,7 @@ export async function requestAIAnswer(
 		}
 
 		const headers = buildAIHeaders(config);
-		const data = {
-			model: config.model,
-			temperature: config.temperature,
-			max_tokens: config.maxTokens,
-			stream: false,
-			messages: buildAIMessages(config, env)
-		};
+		const data = buildAIData(config, env);
 
 		logger?.('[AI-请求]', url, JSON.stringify(data));
 

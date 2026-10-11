@@ -517,6 +517,27 @@ export const CommonProject = Project.create({
 							'AI 与题库先后串行执行，设置过大会与题库超时叠加，可能超过答题器的等待上限（题库超时 + 10 秒）。'
 					}
 				},
+				aiRetryCount: {
+					label: '失败重试次数',
+					defaultValue: DEFAULT_AI_CONFIG.retries,
+					attrs: {
+						type: 'number',
+						min: 0,
+						max: 5,
+						step: 1,
+						title:
+							'AI 请求失败（超时、接口报错、内容无法解析）后的额外重试次数，每次间隔 2 秒。注意重试会叠加总耗时。'
+					}
+				},
+				aiDisableThinking: {
+					label: '禁止模型思考',
+					defaultValue: DEFAULT_AI_CONFIG.disableThinking,
+					attrs: {
+						type: 'checkbox',
+						title:
+							'携带 DeepSeek 官方参数（thinking: disabled 与 reasoning_effort: none）关闭思考模式，答题不需要推理，关闭后响应时间可缩短数倍。若个别平台提示参数错误，请关闭本选项。'
+					}
+				},
 				aiPrompt: {
 					label: '用户提示词',
 					tag: 'textarea',
